@@ -144,6 +144,10 @@ func (a *APIClient) Versions(ctx context.Context, pk PackageKey) ([]Version, err
 			Version:     v.VersionKey.Version,
 		}, v, "")
 	}
+	// Sort the versions into the ascending order expected by the resolvers;
+	// the API may return them in a different order (e.g. lexicographic for
+	// PyPI).
+	SortVersions(vers)
 	return vers, nil
 }
 

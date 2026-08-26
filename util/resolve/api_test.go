@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc"
 
 	pb "deps.dev/api/v3"
 	"deps.dev/util/resolve/internal/deptest"
@@ -324,5 +325,60 @@ func TestPyPIRequirements(t *testing.T) {
 		if d := cmp.Diff(c.out, got); d != "" {
 			t.Errorf("pypiRequirements(%v):\n(- want, + got):\n%s", c.in, d)
 		}
+	}
+}
+
+// mockInsightsClient is a pb.InsightsClient that returns a fixed package
+// from GetPackage; the other methods are not implemented and are not
+// called by the tests.
+type mockInsightsClient struct {
+	pb.InsightsClient
+	pkg *pb.Package
+}
+
+func (m *mockInsightsClient) GetPackage(ctx context.Context, in *pb.GetPackageRequest, opts ...grpc.CallOption) (*pb.Package, error) {
+	return m.pkg, nil
+}
+
+func TestVersions(t *testing.T) {
+	ctx := context.Background()
+	pk := PackageKey{
+		System: PyPI,
+		Name:   "test",
+	}
+	vers := func(v string) *pb.Package_Version {
+		return &pb.Package_Version{
+			VersionKey: &pb.VersionKey{
+				System:  pb.System_PYPI,
+				Name:    "test",
+				Version: v,
+			},
+		}
+	}
+	// The versions in the lexicographic order returned by the deps.dev API
+	// for PyPI, where "9.1.0" comes after "84.0.0".
+	client := APIClient{
+		c: &mockInsightsClient{pkg: &pb.Package{
+			Versions: []*pb.Package_Version{
+				vers("0.9.0"),
+				vers("1.10.0"),
+				vers("1.9.0"),
+				vers("2.0.0"),
+				vers("84.0.0"),
+				vers("9.1.0"),
+			},
+		}},
+	}
+	got, err := client.Versions(ctx, pk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotVersions []string
+	for _, v := range got {
+		gotVersions = append(gotVersions, v.Version)
+	}
+	wantVersions := []string{"0.9.0", "1.9.0", "1.10.0", "2.0.0", "9.1.0", "84.0.0"}
+	if d := cmp.Diff(wantVersions, gotVersions); d != "" {
+		t.Errorf("Versions(%v):\n(- want, + got):\n%s", pk, d)
 	}
 }

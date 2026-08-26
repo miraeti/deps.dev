@@ -46,7 +46,8 @@ type Client interface {
 	// Version finds a particular version, providing access to its
 	// attributes.
 	Version(context.Context, VersionKey) (Version, error)
-	// Versions returns all the known versions of a package.
+	// Versions returns all the known versions of a package, in a
+	// system-specific order, expected by the relevant resolver.
 	Versions(context.Context, PackageKey) ([]Version, error)
 	// Requirements returns the direct dependencies of the provided version.
 	Requirements(context.Context, VersionKey) ([]RequirementVersion, error)
